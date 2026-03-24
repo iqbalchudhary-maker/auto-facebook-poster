@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  id            String   @id @default(cuid())
+  fbPostId      String?  @unique // Facebook se milne wali Post ID
+  content       String   @db.Text
+  imageUrl      String?  @db.Text
+  hashtags      String[] // Array of hashtags
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Post par aane wale comments ka relation
+  comments      Comment[]
+}
+
+model Comment {
+  id            String   @id @default(cuid())
+  fbCommentId   String   @unique // Facebook ki original comment ID
+  commentText   String   @db.Text
+  aiReplyText   String?  @db.Text // AI ne jo reply diya
+  repliedAt     DateTime?
+  createdAt     DateTime @default(now())
+  
+  // Relation with Post
+  postId        String
+  post          Post     @relation(fields: [postId], references: [id])
+}
