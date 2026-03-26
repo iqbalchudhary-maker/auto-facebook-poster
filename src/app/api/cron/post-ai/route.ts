@@ -1,30 +1,31 @@
 import { NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Vercel ko 60 seconds tak wait karne ka kahein (AI slow ho sakta hai)
+export const maxDuration = 60; 
 
 export async function GET(request: Request) {
   try {
-    console.log("--- DEBUG START ---");
-    
-    // Check Variables
     const PAGE_ID = process.env.FB_PAGE_ID;
     const ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
+    const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
-    console.log("Checking Env Vars...");
-    console.log("FB_PAGE_ID:", PAGE_ID ? "✅ Loaded" : "❌ MISSING");
-    console.log("FB_TOKEN:", ACCESS_TOKEN ? "✅ Loaded" : "❌ MISSING");
-
-    if (!PAGE_ID || !ACCESS_TOKEN) {
-      console.error("CRITICAL ERROR: Environment Variables are missing in Vercel Settings!");
-      return NextResponse.json({ 
-        success: false, 
-        error: "Variables Missing. Check Vercel Dashboard Settings > Environment Variables." 
-      }, { status: 500 });
+    if (!PAGE_ID || !ACCESS_TOKEN || !GEMINI_KEY) {
+      return NextResponse.json({ error: "Missing Environment Variables" }, { status: 500 });
     }
 
-    // AI Message
-    const aiMessage = "AI Automation Test 🤖\nStatus: Online\nTime: " + new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' });
+    // 1. Gemini AI se Content likhwana
+    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    console.log("Sending request to Facebook API...");
+    const prompt = "Write a professional and engaging Facebook post about AI Automation and Future Tech. Include 5 trending hashtags and emojis.";
+    
+    const result = await model.generateContent(prompt);
+    const aiMessage = result.response.text();
 
+    console.log("AI Content Generated:", aiMessage);
+
+    // 2. Facebook par Post karna
     const fbResponse = await fetch(`https://graph.facebook.com/v19.0/${PAGE_ID}/feed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -34,23 +35,20 @@ export async function GET(request: Request) {
       }),
     });
 
-    const result = await fbResponse.json();
+    const fbData = await fbResponse.json();
 
-    if (result.error) {
-      console.error("Facebook API Error Detail:", result.error);
-      return NextResponse.json({ success: false, error: result.error.message }, { status: 400 });
+    if (fbData.error) {
+      return NextResponse.json({ success: false, error: fbData.error.message }, { status: 400 });
     }
 
-    console.log("--- SUCCESS! Post ID:", result.id, "---");
-    
     return NextResponse.json({ 
-        success: true, 
-        message: "Post shared successfully!", 
-        post_id: result.id 
+      success: true, 
+      message: "Proper AI Post Shared!", 
+      id: fbData.id 
     });
 
   } catch (error: any) {
-    console.error("Final Cron Error:", error.message);
+    console.error("Cron Error:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
