@@ -1,54 +1,51 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateAIPostAndPrompt } from "@/lib/gemini";
 
-// Vercel ko 60 seconds tak wait karne ka kahein (AI slow ho sakta hai)
 export const maxDuration = 60; 
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const PAGE_ID = process.env.FB_PAGE_ID;
     const ACCESS_TOKEN = process.env.FB_PAGE_ACCESS_TOKEN;
-    const GEMINI_KEY = process.env.GEMINI_API_KEY;
+    const HF_TOKEN = process.env.HF_TOKEN; // <--- Aapka .env wala naam
 
-    if (!PAGE_ID || !ACCESS_TOKEN || !GEMINI_KEY) {
-      return NextResponse.json({ error: "Missing Environment Variables" }, { status: 500 });
+    if (!PAGE_ID || !ACCESS_TOKEN || !HF_TOKEN) {
+      return NextResponse.json({ error: "Variables Missing" }, { status: 500 });
     }
 
-    // 1. Gemini AI se Content likhwana
-    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // 1. Gemini se Content aur Prompt lein
+    const aiData = await generateAIPostAndPrompt();
 
-    const prompt = "Write a professional and engaging Facebook post about AI Automation and Future Tech. Include 5 trending hashtags and emojis.";
+    // 2. Hugging Face se Image Generate karein
+    const imgRes = await fetch(
+      "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
+      {
+        headers: { Authorization: `Bearer ${HF_TOKEN}` },
+        method: "POST",
+        body: JSON.stringify({ inputs: aiData.image_prompt }),
+      }
+    );
+
+    if (!imgRes.ok) throw new Error("HF Image Generation Failed");
+
+    const imageBlob = await imgRes.blob();
     
-    const result = await model.generateContent(prompt);
-    const aiMessage = result.response.text();
+    // 3. Facebook API (Photos Endpoint)
+    const formData = new FormData();
+    formData.append('source', imageBlob, 'post.jpg');
+    formData.append('message', aiData.post_text);
+    formData.append('access_token', ACCESS_TOKEN);
 
-    console.log("AI Content Generated:", aiMessage);
-
-    // 2. Facebook par Post karna
-    const fbResponse = await fetch(`https://graph.facebook.com/v19.0/${PAGE_ID}/feed`, {
+    const fbRes = await fetch(`https://graph.facebook.com/v19.0/${PAGE_ID}/photos`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: aiMessage,
-        access_token: ACCESS_TOKEN,
-      }),
+      body: formData,
     });
 
-    const fbData = await fbResponse.json();
+    const result = await fbRes.json();
 
-    if (fbData.error) {
-      return NextResponse.json({ success: false, error: fbData.error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ 
-      success: true, 
-      message: "Proper AI Post Shared!", 
-      id: fbData.id 
-    });
+    return NextResponse.json({ success: true, id: result.id });
 
   } catch (error: any) {
-    console.error("Cron Error:", error.message);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: error.message });
   }
 }
