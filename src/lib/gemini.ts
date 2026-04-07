@@ -11,22 +11,30 @@ export async function generateAIPostAndPrompt() {
   });
 
   const prompt = `
-    I am a Full Stack Developer and AI Automation Expert. 
-    Task: Generate a Facebook post and an image prompt.
-    
-    Details to include:
-    - My WhatsApp: +923010637955
-    - Mention: This post is 100% automated (Proof of my AI skills).
-    - Links: Mention my Vercel and PAIB portfolios.
-    - Image Prompt: Describe a futuristic, cinematic workspace with holographic code.
+  I am a Full Stack Developer and AI Automation Expert.
+  Task: Generate a Facebook post text and an image generation prompt.
 
-    Return ONLY a JSON object with this exact structure:
-    {
-      "post_text": "text content here",
-      "image_prompt": "visual description here"
-    }
-  `;
+  **Instruction for Post Text (Message):**
+  Keep the message detailed, professional, and informative, explaining my full stack (Next.js/React, SaaS) and AI automation skills (ERPs, automated marketing, chatbots). The goal is to present me as an expert. Include the elements below in the text.
 
+  **Instruction for Image Generation Prompt:**
+  Do NOT generate a simple workspace. Instead, generate a highly detailed, professional, cinematic 3D advertisement image (like a premium SaaS dashboard) that visually represents "The Power of my AI & Full Stack Skills."
+
+  **Details to Include (in both Text and Image):**
+  1.  **WhatsApp:** +923010637955
+  2.  **Portfolio Links:** Vercel (e.g., yourname.vercel.app) and PAIB (e.g., yourname.paib.com) (Use placeholders like '[Vercel Link]' and '[PAIB Link]' in the text, and design them into the image).
+  3.  **Proof of Automation (Crucial):** A section or text on the image explicitly states: "**This Post & Image were 100% Automated by My AI**."
+
+  **Visual Style for Image:**
+  Futuristic, clean, midnight blue and neon cyan lighting, 8k resolution, ultra-detailed textures, photographic realism with glowing holographic elements.
+
+  **Required Output Format:**
+  Return ONLY a JSON object with this exact structure:
+  {
+    "post_text": "Detailed professional message content here",
+    "image_prompt": "Ultra-detailed visual description of the advertisement here"
+  }
+`;
   try {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
